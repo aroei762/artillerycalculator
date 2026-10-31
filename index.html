@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mortar Range Calculator</title>
+<style>
+  :root {
+    /* Each coordinate unit = 100 meters (same as the *100 in your spreadsheet).
+       Change the SCALE value in the script at the bottom if your game differs. */
+    --panel: #11140d;
+    --panel-2: #181d12;
+    --line: #3a4527;
+    --text: #d8e0c3;
+    --muted: #8d9873;
+    --accent: #b6d457;
+    --danger: #e5533d;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-family: "Courier New", Courier, monospace;
+    color: var(--text);
+  }
+
+  .wrap {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  /* ---------- CAMO FRAME ---------- */
+  .frame {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    padding: 22px;                 /* thickness of the camo border */
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,.55), inset 0 0 0 2px rgba(0,0,0,.6);
+    isolation: isolate;
+  }
+
+  .camo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+  }
+
+  /* ---------- INNER PANEL ---------- */
+  .panel {
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 3px),
+      linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 2px solid #000;
+    border-radius: 8px;
+    padding: 20px 18px 18px;
+    box-shadow: inset 0 0 25px rgba(0,0,0,.7), 0 0 0 2px rgba(182,212,87,.15);
+  }
+
+  h1 {
+    margin: 0 0 4px;
+    text-align: center;
+    font-size: 20px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(182,212,87,.35);
+  }
+
+  .sub {
+    text-align: center;
+    margin: 0 0 18px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  fieldset {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin: 0 0 14px;
+    padding: 10px 12px 12px;
+    background: rgba(0,0,0,.25);
+  }
+
+  legend {
+    padding: 0 8px;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+
+  fieldset.me legend     { color: #8fd45a; }
+  fieldset.target legend { color: var(--danger); }
+  fieldset.me     { border-color: rgba(143,212,90,.45); }
+  fieldset.target { border-color: rgba(229,83,61,.5); }
+
+  .row { display: flex; gap: 10px; }
+  .field { flex: 1; min-width: 0; }
+
+  label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+  }
+
+  input[type="number"] {
+    width: 100%;
+    padding: 10px 10px;
+    font: inherit;
+    font-size: 17px;
+    color: var(--text);
+    background: #0a0c07;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+
+  input[type="number"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(182,212,87,.2);
+  }
+
+  fieldset.target input:focus {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 2px rgba(229,83,61,.25);
+  }
+
+  /* ---------- RESULT ---------- */
+  .result {
+    margin-top: 16px;
+    padding: 14px 10px 12px;
+    text-align: center;
+    background: #0a0c07;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    box-shadow: inset 0 0 18px rgba(182,212,87,.1);
+  }
+
+  .result .tag {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .result .big {
+    font-size: 44px;
+    line-height: 1.1;
+    font-weight: bold;
+    color: var(--accent);
+    text-shadow: 0 0 12px rgba(182,212,87,.45);
+    margin: 4px 0 2px;
+    word-break: break-all;
+  }
+
+  .result .unit {
+    font-size: 14px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .details {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+
+  button {
+    width: 100%;
+    margin-top: 12px;
+    padding: 10px;
+    font: inherit;
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+  }
+  button:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* hide number spinners for a cleaner look */
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="frame">
+
+    <!-- Procedural camouflage (4 tones: black, olive, dark green, brown) -->
+    <svg class="camo" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" aria-hidden="true">
+      <filter id="camoFilter" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves="3" seed="11" result="noise"/>
+        <feColorMatrix in="noise" type="matrix"
+          values="2.8 0 0 0 -0.9
+                  2.8 0 0 0 -0.9
+                  2.8 0 0 0 -0.9
+                  0   0 0 0  1" result="contrast"/>
+        <feComponentTransfer in="contrast">
+          <feFuncR type="discrete" tableValues="0.07 0.23 0.29 0.12"/>
+          <feFuncG type="discrete" tableValues="0.08 0.29 0.23 0.17"/>
+          <feFuncB type="discrete" tableValues="0.05 0.15 0.14 0.09"/>
+        </feComponentTransfer>
+      </filter>
+      <rect width="100%" height="100%" filter="url(#camoFilter)" fill="#2a3320"/>
+    </svg>
+
+    <div class="panel">
+      <h1>Mortar Calculator</h1>
+      <p class="sub">Range to target</p>
+
+      <fieldset class="me">
+        <legend>My Coordinates</legend>
+        <div class="row">
+          <div class="field">
+            <label for="myX">X</label>
+            <input type="number" id="myX" step="any" inputmode="decimal" placeholder="0">
+          </div>
+          <div class="field">
+            <label for="myY">Y</label>
+            <input type="number" id="myY" step="any" inputmode="decimal" placeholder="0">
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="target">
+        <legend>Target Coordinates</legend>
+        <div class="row">
+          <div class="field">
+            <label for="tgtX">X</label>
+            <input type="number" id="tgtX" step="any" inputmode="decimal" placeholder="0">
+          </div>
+          <div class="field">
+            <label for="tgtY">Y</label>
+            <input type="number" id="tgtY" step="any" inputmode="decimal" placeholder="0">
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="result">
+        <div class="tag">Distance</div>
+        <div class="big" id="answer">---</div>
+        <div class="unit">meters away</div>
+        <div class="details">
+          <span>&Delta;X&sup2;: <b id="dx2">-</b></span>
+          <span>&Delta;Y&sup2;: <b id="dy2">-</b></span>
+          <span>&radic;: <b id="root">-</b></span>
+        </div>
+      </div>
+
+      <button type="button" id="clearBtn">Reset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Same as the "*100" in the spreadsheet: 1 coordinate unit = 100 meters.
+  var SCALE = 100;
+
+  var ids = ["myX", "myY", "tgtX", "tgtY"];
+  var el = {};
+  ids.forEach(function (id) { el[id] = document.getElementById(id); });
+
+  var answer = document.getElementById("answer");
+  var dx2El  = document.getElementById("dx2");
+  var dy2El  = document.getElementById("dy2");
+  var rootEl = document.getElementById("root");
+
+  function val(id) {
+    var v = el[id].value;
+    return v === "" ? NaN : parseFloat(v);
+  }
+
+  function fmt(n, d) {
+    return (Math.round(n * Math.pow(10, d)) / Math.pow(10, d)).toString();
+  }
+
+  function calculate() {
+    var x1 = val("myX"), y1 = val("myY"), x2 = val("tgtX"), y2 = val("tgtY");
+
+    if ([x1, y1, x2, y2].some(isNaN)) {
+      answer.textContent = "---";
+      dx2El.textContent = dy2El.textContent = rootEl.textContent = "-";
+      return;
+    }
+
+    var dx2  = Math.pow(x1 - x2, 2);   // =(B4-D4)^2
+    var dy2  = Math.pow(y1 - y2, 2);   // =(C4-E4)^2
+    var sum  = dx2 + dy2;              // =(B8+C8)
+    var root = Math.sqrt(sum);         // =SQRT(B10)
+    var meters = root * SCALE;         // =(B12*100)
+
+    dx2El.textContent  = fmt(dx2, 2);
+    dy2El.textContent  = fmt(dy2, 2);
+    rootEl.textContent = fmt(root, 3);
+    answer.textContent = fmt(meters, 1);
+  }
+
+  ids.forEach(function (id) { el[id].addEventListener("input", calculate); });
+
+  document.getElementById("clearBtn").addEventListener("click", function () {
+    ids.forEach(function (id) { el[id].value = ""; });
+    calculate();
+    el.myX.focus();
+  });
+})();
+</script>
+</body>
+</html>
